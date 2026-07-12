@@ -1,0 +1,59 @@
+name: SplitFedLLM
+server:
+  global-round: 10
+  clients:
+    - 4
+    - 1
+  cut-layers: 1
+  model-name: BERT # GPT2 / BERT
+  data-name: AGNEWS # AGNEWS / E2E
+  model:
+    BERT:
+      n_block: 12
+    GPT2:
+      n_block: 12
+  parameters:
+    load: True
+    save: True
+  validation: True
+  data-distribution:
+    non-iid: False
+    num-sample: 2000
+    num-label: 4
+    dirichlet:
+      alpha: 1
+    refresh-each-round: True
+  random-seed: 42
+
+rabbit:
+  address: 192.168.101.120
+  username: dai
+  password: dai
+  virtual-host: /
+
+log_path: .
+debug_mode: True
+
+learning:
+  learning-rate: 0.00001
+  weight-decay: 0.01
+  batch-size: 2
+  control-count: 1
+  clip-grad-norm: 0.0
+
+fine-tune:
+  client: False
+  server: False
+  LoRA:
+    r: 8
+    alpha: 16
+
+bottleneck:
+  enable: True
+  bottleneck_dim: 128
+
+phase:
+  enable: True             
+  thresh_val_loss: 0.005   
+  window: 3                
+
