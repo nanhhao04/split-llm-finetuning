@@ -36,8 +36,8 @@ def val_GPT2(state_dict_full, logger, num_val_samples=1000):
             shift_logits = logits[:, :-1, :].contiguous()
             shift_labels = labels[:, 1:].contiguous()
             loss = loss_fct(
-                shift_logits.view(-1, shift_logits.size(-1)),
-                shift_labels.view(-1),
+                shift_logits.view(-1, shift_logits.size(-1)), # logits bỏ token cuối
+                shift_labels.view(-1), #label bo token dau
             )
 
             if torch.isnan(loss).any():

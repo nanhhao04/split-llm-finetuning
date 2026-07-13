@@ -157,9 +157,20 @@ def print_comm_costs_round(
     # Tổng số steps (data_count) tích lũy từ tất cả Layer-1 clients trong round này
     total_steps = sum(global_client_sizes[0]) if len(global_client_sizes) > 0 else 0
 
-    act_bytes  = total_steps * batch_size * seq_len * act_dim * 4
+    activation_base_bytes = total_steps * batch_size * seq_len * act_dim * 4
+
+    # Chi phí attention_mask và label gửi kèm activation
+    if model_name == 'GPT2':
+        attention_mask_bytes = total_steps * batch_size * seq_len * 8
+        label_bytes = total_steps * batch_size * seq_len * 8
+    else:  # BERT
+        attention_mask_bytes = 0
+        label_bytes = total_steps * batch_size * 8
+
+    act_bytes = activation_base_bytes + attention_mask_bytes + label_bytes
     # Phase 1: client bị freeze hoàn toàn → gradient không cần gửi về để cập nhật tham số
-    grad_bytes = 0 if phase == 1 else act_bytes
+    # Trong pha 2, chỉ có gradient của activation được gửi ngược lại (không có gradient cho mask hay label)
+    grad_bytes = 0 if phase == 1 else activation_base_bytes
 
     # Chi phí aggregation: chỉ tính ở Pha 2
     weight_up_bytes   = 0
@@ -179,28 +190,7 @@ def print_comm_costs_round(
     total_round_bytes = act_bytes + grad_bytes + weight_up_bytes + weight_down_bytes
     new_accumulated   = accumulated_bytes + total_round_bytes
 
-    _HEADER = '\033[95m'
-    _BOLD   = '\033[1m'
-    _END    = '\033[0m'
 
-    phase_label = f"Phase {phase} ({'Bottleneck ON, z=' + str(bottleneck_dim) if phase == 1 else 'Full FP32, no Bottleneck'})"
-    grad_note   = "(skipped - Phase 1, client frozen)" if phase == 1 else ""
-    agg_note    = "(skipped - Phase 1)" if phase == 1 else ""
-
-    info_str = (
-        f"============================================================\n"
-        f"  [communication cost] {phase_label}\n"
-        f"============================================================\n"
-        f"  - Activation  (Forward):   {pretty_bytes(act_bytes)}\n"
-        f"  - Gradient    (Backward):  {pretty_bytes(grad_bytes)} {grad_note}\n"
-        f"  - Aggregation up:          {pretty_bytes(weight_up_bytes)} {agg_note}\n"
-        f"  - Aggregation down:        {pretty_bytes(weight_down_bytes)} {agg_note}\n"
-        f"  --------------------------------------------------------\n"
-        f"  - communication cost ROUND:    {pretty_bytes(total_round_bytes)}\n"
-        f"  - total communication cost:    {pretty_bytes(new_accumulated)}\n"
-        f"============================================================"
-    )
-
-    print(f"\n{_HEADER}{_BOLD}{info_str}{_END}\n")
+    print(f"total communication cost: {pretty_bytes(new_accumulated)}")
     return info_str, total_round_bytes
 
